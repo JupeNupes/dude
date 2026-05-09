@@ -1,4 +1,6 @@
 #!/usr/local/bin python3
+# Standard library and third-party imports for GUI, data processing, and visualization
+
 """dude.py: Just Another Data Viewer"""
 
 import os
@@ -52,6 +54,8 @@ else:
 class MyMainWindow:
 
     #------------------------Add-ons-------------------------------#
+    # These methods manage sub-windows for additional functionality (Add-ons)
+    # They check if a window already exists and present it, otherwise they initialize it.
 
     def Addon_PtychoLib(self, widget):
         
@@ -103,8 +107,12 @@ class MyMainWindow:
             self.ShowMetadata = ShowMetadata.MainWindow(self)
 
     #-------------------------miscellaneous------------------------#
+    # Utility methods for console commands and canvas drawing
+
 
     def Console_Command_Sent(self, widget):
+        # Handles commands entered in the GUI console (clear, history, or arbitrary python code)
+
 
         if self.Console_Entry.get_text() == 'clear':
             widget.get_completion().get_model().clear()
@@ -123,6 +131,8 @@ class MyMainWindow:
 
 
     def Image_Canvas_Draw_Rectangle(self, xmin, xmax, ymin, ymax, color, animated = False):
+        # Helper to draw a rectangle on the detector image axe (used for ROIs and Zooming)
+
 
         Rectangle =  patches.Rectangle((xmin, ymin), width = xmax-xmin, height = ymax - ymin,\
         alpha = 1, edgecolor = color, fill = False, linewidth= 3, animated = animated)
@@ -130,8 +140,13 @@ class MyMainWindow:
         return Rectangle
 
     #------------detector image related callbacks--------------#
+    # Methods for loading and interacting with detector images
+
 
     def LoadAllImages(self, widget):
+        # Loads all detector images for the current scan into memory.
+        # Supports HDF5 (Eiger) and TIFF stacks, with options for sparse matrix storage and masking.
+
         
         t0 = time.time()
         if self.eiger_enabled:
@@ -197,6 +212,8 @@ class MyMainWindow:
 
 
     def Image_Canvas_Button_Released(self, event):
+        # Handles the completion of mouse interactions (Zooming, Panning, ROI drawing) on the detector image.
+
 
         self.Image_xend, self.Image_yend = list(map(lambda x: round(x, 0), (Display2Data(self.Image_Axe, event.x, event.y))))
        
@@ -259,6 +276,8 @@ class MyMainWindow:
        
 
     def Image_Canvas_Button_Scrolled(self, event):
+        # Implements zooming in/out on the detector image using the mouse scroll wheel.
+
 
         xdata, ydata = list(map(lambda x: round(x, 0), (Display2Data(self.Image_Axe, event.x, event.y))))
         old_x_range = self.Image_Axe.get_xlim()[1]-self.Image_Axe.get_xlim()[0]
@@ -280,6 +299,8 @@ class MyMainWindow:
 
 
     def Image_Canvas_Mouse_Hover(self, event):
+        # Updates status labels and interactive overlays as the mouse moves over the detector image.
+
 
         self.Image_xend, self.Image_yend = list(map(lambda x: int(round(x, 0)), (Display2Data(self.Image_Axe, event.x, event.y))))
         try:
@@ -323,6 +344,8 @@ class MyMainWindow:
                 self.Image_Canvas.draw()
             
     def Image_ZoomOut(self, widget):
+        # Resets the detector image view to show the full detector area.
+
 
         dim_y, dim_x = self.Image_Image.get_array().shape
         self.Image_Axe.set_xlim(-0.5, dim_x-0.5)
@@ -332,6 +355,8 @@ class MyMainWindow:
         self.Image_ZoomOut_Button.set_sensitive(False)
 
     def Image_Canvas_Button_Pressed(self, event):
+        # Initiates mouse interactions (Zooming, Panning, ROI drawing) on the detector image.
+
         
         self.Image_xstart, self.Image_ystart = list(map(lambda x: round(x, 0), (Display2Data(self.Image_Axe, event.x, event.y))))
 
@@ -364,6 +389,8 @@ class MyMainWindow:
 
 
     def Image_AutoScale_toggled(self, widget):
+        # Toggles between automatic and manual intensity scaling for the detector image display.
+
 
         if widget.get_active():
             data = self.Image_Image.get_array()
@@ -390,6 +417,8 @@ class MyMainWindow:
 
 
     def Image_Vscale_Changed(self, widget):
+        # Updates the intensity normalization (linear or log) based on manual slider values.
+
   
         self.Image_Vmax_HScale_Adjustment.set_lower(self.Image_Vmin_HScale_Adjustment.get_value()+1)
         self.Image_Vmin_HScale_Adjustment.set_upper(self.Image_Vmax_HScale_Adjustment.get_value()-1)
@@ -401,6 +430,8 @@ class MyMainWindow:
 
 
     def Image_Plot_HScale_Changed(self, widget):
+        # Updates the displayed detector image when the scan index slider is moved.
+
 
         index = int((widget.get_value()-self.image_index_min)/self.nbin)
         if self.eiger_enabled:
@@ -445,6 +476,8 @@ class MyMainWindow:
         self.Image_Canvas.draw()
 
     def XRF_RoI(self, widget, flag):
+        # Calculates and plots 1D/2D data for a selected XRF Region of Interest.
+
 
         if flag == 1:
             xmin = int(self.XRF1_Vmin_HScale_Adjustment.get_value())
@@ -484,6 +517,8 @@ class MyMainWindow:
             
 
     def XRF_Sum(self, widget):
+        # Computes the sum of XRF spectra across all points and updates the XRF display axes.
+
 
         self.XRF1_Axe.cla()
         index = int(self.XRF_Plot_HScale_Adjustment.get_value())
@@ -614,6 +649,8 @@ class MyMainWindow:
             self.XRF2_Axe.set_ylim(ymin-dy, ymax+dy)
 
     #----------------1D Plot related callbacks----------------#
+    # Methods for interacting with 1D scan plots
+
 
     def Plot1D_Canvas_Mouse_Hover(self, event):
 
@@ -659,6 +696,8 @@ class MyMainWindow:
 
         
     #----------------2D Plot related callbacks----------------#
+    # Methods for interacting with 2D scan plots (maps)
+
     def Plot2D_Canvas_Mouse_Pressed(self, event):
 
         global _xstart, _ystart
@@ -798,8 +837,12 @@ class MyMainWindow:
             self.Plot2D_ScaleBar_toggled(self.Plot2D_ScaleBar_ToggleButton)
 
     #-------------------main menu callbacks--------------------#
+    # Methods triggered by main menu items and global settings
+
 
     def FileDialog_Construction(self, widget, flag = 0):
+        # Generic file/folder dialog constructor for MDA, Images, or Save/Open actions.
+
 
         if flag == 0: #MDA
             FileDialog = Gtk.FileChooserDialog(title = "Choose MDA Folder", action = Gtk.FileChooserAction.SELECT_FOLDER)
@@ -855,6 +898,8 @@ class MyMainWindow:
 
 
     def Detector_Changed(self, widget):
+        # Updates global detector dimensions and resets display axes when a new detector is selected.
+
 
         if not widget.get_active():
             return
@@ -891,6 +936,8 @@ class MyMainWindow:
 
 
     def Change_Colormap(self, widget):
+        # Changes the colormap used for all image and 2D plot displays.
+
 
         if widget.get_active(): #the callback is invoked two times, deselecting one and selecing another
             self.cm = widget.get_label()
@@ -901,6 +948,8 @@ class MyMainWindow:
             self.Plot2D_Canvas.draw()
 
     def SparseToggled(self, widget):
+        # Toggles the use of sparse matrices for efficient memory handling of large image stacks.
+
 
         if widget.get_active():
             self.sparse_enabled = True
@@ -908,6 +957,8 @@ class MyMainWindow:
             self.sparse_enabled = False
 
     def ShowAngleToggled(self, widget):
+        # Toggles the display of calculated 2-theta/gamma angles instead of pixel coordinates.
+
 
         if widget.get_active():
             analysis_folder = os.path.join(os.path.abspath(os.path.join(self.MDA_folder, os.pardir, 'Analysis')))    
@@ -922,6 +973,8 @@ class MyMainWindow:
             self.show_angle = False
 
     def DirtyFixToggled(self, widget):
+        # Toggles a data correction for specific detector types where the first point might be corrupted.
+
         
         if widget.get_active():
             self.dirty_fix = True
@@ -929,6 +982,8 @@ class MyMainWindow:
             self.dirty_fix = False
 
     def PumpProbeToggled(self, widget):
+        # Toggles specialized processing for pump-probe experiments (e.g., interleaving/splitting images).
+
         
         if widget.get_active():
             self.pump_probe = True
@@ -936,6 +991,8 @@ class MyMainWindow:
             self.pump_probe = False
 
     def XRFModeToggled(self, widget):
+        # Switches the UI layout between diffraction image mode and XRF spectrum mode.
+
         
         if widget.get_active():
             self.xrf_mode = True
@@ -945,6 +1002,7 @@ class MyMainWindow:
             self.Image_Notebook.set_current_page(0)
 
     def MainWindow_Destroy(self, widget): 
+        # Cleanup routine: closes files, destroys sub-windows, and exits the main GTK loop.
 
         self.image = None
         try:
@@ -984,6 +1042,8 @@ class MyMainWindow:
 
 
     def AboutThisProgram(self, widget):
+        # Displays the "About" dialog with versioning and developer information.
+
 
         dialog = Gtk.AboutDialog()
         dialog.set_program_name("dude")
@@ -997,8 +1057,10 @@ class MyMainWindow:
         
 
     #---------------scan toolbox callbacks--------------------#   
+    # Methods for ROI management and hot pixel masking tools
 
     def Scan_ToolBox_ImageData_MaskAbove(self, widget):
+        # Generates a custom pixel mask based on a hot-pixel threshold.
 
         if widget.get_active():
             threshold = int(self.Scan_ToolBox_ImageData_HotPixel_Adjustment.get_value())
@@ -1008,6 +1070,7 @@ class MyMainWindow:
 
 
     def Scan_ToolBox_ImageData_MaskBelow(self, widget):
+        # Zeroes out all pixel values below the specified threshold across all loaded images.
 
         threshold = int(self.Scan_ToolBox_ImageData_HotPixel_Adjustment.get_value())
         if self.sparse_enabled:
@@ -1018,6 +1081,7 @@ class MyMainWindow:
 
 
     def Scan_ToolBox_U_Toggled(self, widget):
+        # Toggles the visualization of the currently selected Region of Interest (ROI).
 
         if not widget.get_active():
             try:
@@ -1029,7 +1093,8 @@ class MyMainWindow:
 
 
     def Scan_ToolBox_CustomROI_Summed(self, widget):
-        
+        # Integrates intensity within the defined ROI across all points in the scan for 1D/2D plotting.
+
         ndim = len(self.data)-1 if self.data[0]["dimensions"][-1] != 2048 else len(self.data)-2
         xmin = int(self.Scan_ToolBox_CustomROI_XMin_Spin_Adjustment.get_value())
         xmax = int(self.Scan_ToolBox_CustomROI_XMax_Spin_Adjustment.get_value())
@@ -1104,6 +1169,8 @@ class MyMainWindow:
             self.Plot2D_Canvas.draw()
         
     def Scan_ToolBox_CustomROI_Added(self, widget):
+        # Saves the current ROI coordinates into the custom ROI list for later reuse.
+
         
         roi_name = self.Scan_ToolBox_CustomROI_Entry.get_text()
         roi_info = [roi_name, \
@@ -1120,6 +1187,8 @@ class MyMainWindow:
 
 
     def Scan_ToolBox_CustomROI_Changed(self, widget):
+        # Updates the ROI coordinate limits and visual overlay when spin buttons are adjusted.
+
         
         xmin = int(self.Scan_ToolBox_CustomROI_XMin_Spin_Adjustment.get_value())
         xmax = int(self.Scan_ToolBox_CustomROI_XMax_Spin_Adjustment.get_value())
@@ -1139,6 +1208,8 @@ class MyMainWindow:
         
      
     def Scan_ToolBox_Plot_Changed(self, widget):
+        # Refreshes the 1D/2D plots based on the current detector, monitor, or ROI selection.
+
 
         ndim = len(self.data)-1 if self.data[0]["dimensions"][-1] != 2048 else len(self.data)-2
         if ndim == 1:
@@ -1253,6 +1324,8 @@ class MyMainWindow:
 
 
     def Scan_TreeView_Selection_Changed(self, treeselection):
+        # Triggered when a different MDA file is selected in the file list.
+
 
         treemodelfilter, filterpathlist = treeselection.get_selected_rows()
         self.mda_selection_path = list(map(treemodelfilter.convert_path_to_child_path, filterpathlist))
@@ -1264,6 +1337,8 @@ class MyMainWindow:
 
 
     def Scan_TreeView_Select_Hijack(self, treeselection, treefilter, irow, selected):
+        # Custom selection logic to allow browsing files without automatically triggering heavy data loads.
+
         
         irow, icolumn = self.MDA_File_TreeView.get_cursor()
         if icolumn == self.MDA_File_TreeView.get_column(10): 
@@ -1274,6 +1349,9 @@ class MyMainWindow:
 
 
     def Scan_Load(self, mdapath):
+        # Core logic for loading a scan's metadata, 1D/2D data, and associated detector image files.
+        # Handles complex cases like interrupted scans, missing images, and various detector formats.
+
 
         Scan_ToolBox_Y_ComboBox_Select = self.Scan_ToolBox_Y_ComboBox.get_active()
         Scan_ToolBox_M_ComboBox_Select = self.Scan_ToolBox_M_ComboBox.get_active()
@@ -1461,6 +1539,8 @@ class MyMainWindow:
         
 
     def Folder_Refresh(self, widget):
+        # Re-scans the MDA folder for new files added since the last update.
+
 
         self.MDA_cursor_current = self.MDA_File_TreeView.get_cursor()[0] #unstable
         self.MDA_File_TreeView.get_selection().handler_block(self.MDA_File_TreeView_Selection_Changed_Handler) #unstable
@@ -1474,6 +1554,8 @@ class MyMainWindow:
 
 
     def Folder_Open(self):
+        # Clears the current file list and performs a full scan of the MDA directory.
+
 
         self.MDA_File_TreeView.get_selection().handler_block(self.MDA_File_TreeView_Selection_Changed_Handler)
         self.MDA_File_ListStore.clear()
@@ -1485,6 +1567,8 @@ class MyMainWindow:
 
 
     def Folder_Scan(self, MDAfile_list):
+        # Parallelized loading of MDA metadata for a list of files to populate the tree view.
+
 
         if len(self.MDA_File_ListStore):
             self.MDA_File_ListStore.remove(self.MDA_File_ListStore[-1].iter)
@@ -1498,6 +1582,8 @@ class MyMainWindow:
             self.MDA_File_TreeView.set_cursor(self.MDA_cursor_current)#unstable
 
     def Upload_To_Logbook(self, widget, flag):
+        # Saves the current active plot as a JPEG and uploads it to Google Drive/Logbook.
+
 
         folder_id = '1HaYq1NBpA5CTgdP1Y__rOPwpbRoeL6Vo'
         filename = str(uuid.uuid4())+'.jpg'
@@ -1537,6 +1623,8 @@ class MyMainWindow:
         set_row_height(self.sheet, str(i_row), 200)
                
     def Console_KeyPressed(self, widget, event):
+        # Implements history navigation (Up/Down arrows) for the GUI python console.
+
 
         keyname = Gdk.keyval_name(event.keyval)
         if keyname == 'Up' and (event.state & Gdk.ModifierType.SHIFT_MASK):
@@ -1554,7 +1642,8 @@ class MyMainWindow:
  
 
     def __init__(self):
-
+        # Constructor for the main window. Initializes state, UI components, and authentication.
+        # Authenticate with Google Services for logbook integration if configuration exists
         if os.path.exists("/home/sector26/pythonscripts/Tao/token.json"):
             SCOPES = ['https://www.googleapis.com/auth/drive.file']
             creds = Credentials.from_authorized_user_file('/home/sector26/pythonscripts/Tao/token.json', SCOPES)
@@ -1580,8 +1669,9 @@ class MyMainWindow:
         else:
             beamline = False
 
-
+        # Initialize default state variables
         self.cm = "viridis"
+
         self.dimY = 1062
         self.dimX = 1028
         self.Image_Rectangle_Drawing = False
@@ -1592,6 +1682,8 @@ class MyMainWindow:
         self.custom_mask = None
 
         #------------------------MDA File Window------------------------------#    
+        # Setup the scrolled window and list store for the MDA file browser
+
         MDA_File_ScrolledWindow = Gtk.ScrolledWindow()
         MDA_File_ScrolledWindow.set_policy(Gtk.PolicyType.ALWAYS, Gtk.PolicyType.ALWAYS)
         MDA_File_ScrolledWindow.set_overlay_scrolling(False)
@@ -1620,6 +1712,8 @@ class MyMainWindow:
 
         
         # ROI Plot : X, Y, Mon
+        # Setup widgets for selecting Detectors, ROIs, and Monitors for 1D/2D plotting
+
         self.MDA_Det_store = Gtk.ListStore(str, int)
         renderer_text = Gtk.CellRendererText()    
         self.CustomROI_store = Gtk.ListStore(str, int, int, int, int)
@@ -1662,6 +1756,8 @@ class MyMainWindow:
         self.Scan_ToolBox_U_Changed_Handler = self.Scan_ToolBox_U_ComboBox.connect("changed", self.Scan_ToolBox_Plot_Changed)
         
          # ROI Management
+         # Setup widgets for naming, adding, and summing custom ROIs
+
         self.Scan_ToolBox_CustomROI_Entry = Gtk.Entry()
         self.Scan_ToolBox_CustomROI_Entry.set_size_request(40, 20)
         self.Scan_ToolBox_CustomROI_Sum_Button = Gtk.Button(label = " Sum ")
@@ -1683,6 +1779,8 @@ class MyMainWindow:
         self.Scan_ToolBox_CustomROI_Sum_Button.set_sensitive(False)
         
         # ROI Definition
+        # Setup spin buttons for precise coordinate definition of ROIs
+
         self.Scan_ToolBox_CustomROI_YMax_Spin_Adjustment = Gtk.Adjustment(value = 200, lower = 0, upper = self.dimY-1, step_increment = 1, page_increment = 2, page_size = 0)
         self.Scan_ToolBox_CustomROI_YMin_Spin_Adjustment = Gtk.Adjustment(value = 100, lower = 0, upper = self.dimY-1, step_increment = 1, page_increment = 2, page_size = 0)
         self.Scan_ToolBox_CustomROI_XMax_Spin_Adjustment = Gtk.Adjustment(value = 200, lower = 0, upper = self.dimX-1, step_increment = 1, page_increment = 2, page_size = 0)
@@ -1713,6 +1811,8 @@ class MyMainWindow:
         Scan_ToolBox_CustomROI_Table.attach(Scan_ToolBox_CustomROI_XMax_SpinButton, left_attach = 2, right_attach = 3, top_attach = 1, bottom_attach = 2)
 
         # Customized HotPixel Mask
+        # Setup threshold controls and masking buttons for detector data cleanup
+
         self.Scan_ToolBox_ImageData_HotPixel_Adjustment = Gtk.Adjustment(value = 0, lower = 0, upper = 65536, step_increment = 1, page_increment = 10, page_size = 0)
         Scan_ToolBox_ImageData_HotPixel_SpinButton = Gtk.SpinButton()
         Scan_ToolBox_ImageData_HotPixel_SpinButton.set_adjustment(self.Scan_ToolBox_ImageData_HotPixel_Adjustment)
@@ -1743,6 +1843,8 @@ class MyMainWindow:
         Spec_ToolBox_VBox.set_size_request(280, 320)
 
         ############################  Scan Plot 1D  ###############################
+        # Setup the matplotlib canvas and toolbars for 1D scan visualization
+
         
         self.Plot1D_Figure = Figure()
         self.Plot1D_Axe = self.Plot1D_Figure.add_axes([0.08, 0.08, 0.87, 0.87])
@@ -1784,6 +1886,8 @@ class MyMainWindow:
         Plot1D_VBox.set_size_request(640, 480)
 
         #------------------------Plot 2D-------------------------------#
+        # Setup the matplotlib canvas and controls (Log, Auto, Scale) for 2D scan visualization
+
 
         self.Plot2D_Figure = Figure()
         self.Plot2D_Axe = self.Plot2D_Figure.add_axes([0, 0, 1, 1])
@@ -1870,7 +1974,9 @@ class MyMainWindow:
         self.Plot_Notebook.append_page(Plot2D_VBox)
         self.Plot_Notebook.append_page(self.PlotSpare_Canvas)
 
-        self.Image_Figure = Figure()
+        #------------------------Detector Image-------------------------------#
+        # Setup the main detector image display canvas and its mouse interaction events
+
         self.Image_Axe = self.Image_Figure.add_axes([0, 0, 1, 1])
         self.Image_Axe.set_axis_off()
         #self.Image_Axe.xaxis.set_ticklabels([])
@@ -1934,7 +2040,9 @@ class MyMainWindow:
         self.Image_Vmin_HScale.set_sensitive(False)
         self.Image_Vmax_HScale.set_sensitive(False)
         
+        # Setup toolbars for detector image manipulation (Scaling, Zoom, Sliders)
         Image_Toolbar_HBox1 = Gtk.HBox(homogeneous = False, spacing = 3)
+
         Image_Toolbar_HBox1.set_border_width(3)
         Image_Toolbar_HBox1.pack_start(Image_Vmin_Label, False, False, 3)
         Image_Toolbar_HBox1.pack_start(self.Image_Vmin_HScale, True, True, 3)
@@ -1963,8 +2071,9 @@ class MyMainWindow:
 
         Image_VBox.set_size_request(740, 800)
 
-        ###
-        self.XRF_Figure = Figure()
+        #------------------------XRF Plot-------------------------------#
+        # Setup specialized dual-axes display for X-ray Fluorescence (XRF) spectra
+
         self.XRF1_Axe = self.XRF_Figure.add_axes([0.08, 0.55, 0.9, 0.43])
         self.XRF2_Axe = self.XRF_Figure.add_axes([0.08, 0.05, 0.9, 0.43])
         self.XRF_Canvas = FigureCanvas(self.XRF_Figure)
@@ -2136,12 +2245,16 @@ class MyMainWindow:
         XRF_VBox.set_size_request(740, 800)
         ###
 
+        # Combine Image and XRF displays into a Notebook for easy switching
         self.Image_Notebook = Gtk.Notebook()
+
         self.Image_Notebook.set_show_tabs(False)
         self.Image_Notebook.append_page(Image_VBox)
         self.Image_Notebook.append_page(XRF_VBox)
 
+        # Setup the interactive python console entry
         self.Console_Entry = Gtk.Entry()
+
         self.Console_Entry.connect('activate', self.Console_Command_Sent)
         self.Console_Entry.connect('key-press-event', self.Console_KeyPressed)
         Console_EntryCompletion = Gtk.EntryCompletion()
@@ -2151,6 +2264,7 @@ class MyMainWindow:
         Console_EntryCompletion.set_inline_completion(True)
         Console_EntryCompletion.set_popup_completion(False)
 
+        # Build the application menu system (File, Settings, Add-ons, Help)
         AccelGrp = Gtk.AccelGroup.new() 
         FileMenuItem = Gtk.MenuItem(label = "File")
         FileMenu = Gtk.Menu()
@@ -2302,7 +2416,9 @@ class MyMainWindow:
         MenuBar.add(AddonsMenuItem)
         MenuBar.add(HelpMenuItem)
         
+        # Finalize the main window layout and assemble all components
         self.Main_Window = Gtk.Window()
+
         self.Main_Window.add_accel_group(AccelGrp)
 
         HBox1 = Gtk.HBox(homogeneous = False, spacing = 3)
@@ -2341,11 +2457,15 @@ class MyMainWindow:
 #------------------------Main------------------------------#          
 
 def main():
+    # Main application loop
+
     
     Gtk.main()
     return 0
 
 if __name__ == "__main__":
+    # Entry point of the script
+
 
     MyMainWindow()
     main()
