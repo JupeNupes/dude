@@ -3,7 +3,10 @@
 # version 4 Tim Mooney 8/22/02
 # adapted for python3 + remove tkinter support : TZ 03/13/19
 
-from xdrlib import *
+try:
+    from xdrlib import *
+except ModuleNotFoundError:
+    from xdrlib3 import *
 import sys
 import os
 import string

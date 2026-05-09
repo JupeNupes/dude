@@ -1,0 +1,7 @@
+[tool.pyrefly]
+venv = ".venv"
+venv_path = ["."]
+
+# Suppress errors for packages that exist at runtime but are hard to
+# type-check (gi/GTK bindings, local modules not on PyPI, etc.)
+ignore_missing_imports = true

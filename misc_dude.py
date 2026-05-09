@@ -1,3 +1,4 @@
+import os
 import fabio
 from readMDA import *
 import numpy as np
@@ -42,10 +43,13 @@ def image_loader(fname):
 
 def mda_loader(fname):
 
+    # Use basename to avoid dots in directory names (e.g. smith.scott) breaking the split
+    scannum = os.path.splitext(os.path.basename(fname))[0].split("_")[-1]
     try:
         data = readMDA(fname, verbose=0)
     except Exception as e:
         print(fname, e)
+        return [str(int(scannum))]+["-"]*9+[fname,False]
     ctime = -1
     ndim = len(data)-1 if data[0]["dimensions"][-1] != 2048 else len(data)-2
     try:
@@ -53,7 +57,7 @@ def mda_loader(fname):
             for d in data[1].d:
                 if d.name == "26idcXMAP:PresetReal":
                     ctime = d.data[0]
-            return [str(int(fname.split(".")[0].split("_")[-1])),\
+            return [str(int(scannum)),\
                     MotorMNE_Parser(data[1].p[0].name),\
                     "{0:.3f}".format(data[1].p[0].data[0]),\
                     "{0:.3f}".format(data[1].p[0].data[-1]),\
@@ -64,7 +68,7 @@ def mda_loader(fname):
             for d in data[2].d:
                 if d.name == "26idcXMAP:PresetReal":
                     ctime = d.data[0][0]
-            return [str(int(fname.split(".")[0].split("_")[-1])),\
+            return [str(int(scannum)),\
              MotorMNE_Parser(data[1].p[0].name),\
              "{0:.3f}".format(data[1].p[0].data[0]),\
              "{0:.3f}".format(data[1].p[0].data[-1]),\
@@ -73,8 +77,8 @@ def mda_loader(fname):
              "{0:.3f}".format(data[2].p[0].data[0][0]),\
              "{0:.3f}".format(data[2].p[0].data[-1][-1]),\
              str(data[0]["dimensions"][1]),\
-            "{0:.1f}".format(ctime), fname, False]# if (ctime != 5)+(int(fname.split(".")[0].split("_")[-1])==289)+(int(fname.split(".")[0].split("_")[-1])==292) else True]
+            "{0:.1f}".format(ctime), fname, False]
     except Exception as e:
         print (e)
-        return [str(int(fname.split(".")[0].split("_")[-1]))]+["-"]*9+[fname,False]
+        return [str(int(scannum))]+["-"]*9+[fname,False]
 

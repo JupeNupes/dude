@@ -8,6 +8,8 @@ from readMDA import *
 from math import *
 import numpy as np
 from multiprocessing import Pool, cpu_count
+import multiprocessing
+multiprocessing.set_start_method('fork', force=True)  # Required on macOS to prevent child processes from re-importing this module
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk
@@ -1614,7 +1616,7 @@ class MyMainWindow:
         self.MDA_File_TreeView.append_column(MDA_File_TreeViewColumn)
         self.MDA_File_TreeView.set_enable_search(False)
         MDA_File_ScrolledWindow.add(self.MDA_File_TreeView)
-        MDA_File_ScrolledWindow.set_size_request(450, 400)
+        MDA_File_ScrolledWindow.set_size_request(360, 320)
 
         
         # ROI Plot : X, Y, Mon
@@ -1738,7 +1740,7 @@ class MyMainWindow:
         Spec_ToolBox_VBox.pack_start(Scan_Det_HBox1, False, False, 5)
         Spec_ToolBox_VBox.pack_start(Scan_Det_HBox2, False, False, 5)
         Spec_ToolBox_VBox.pack_start(Scan_Det_HBox3, False, False, 5)
-        Spec_ToolBox_VBox.set_size_request(350, 400)
+        Spec_ToolBox_VBox.set_size_request(280, 320)
 
         ############################  Scan Plot 1D  ###############################
         
@@ -1779,7 +1781,7 @@ class MyMainWindow:
         Plot1D_VBox.pack_start(Plot1D_Canvas_Toolbar_HBox, False, False, 0)
         Plot1D_VBox.pack_start(Plot1D_ScrolledWindow, True, True, 0)
         
-        Plot1D_VBox.set_size_request(800,600)
+        Plot1D_VBox.set_size_request(640, 480)
 
         #------------------------Plot 2D-------------------------------#
 
@@ -1959,7 +1961,7 @@ class MyMainWindow:
         Image_VBox.pack_start(self.Image_ScrolledWindow_EventBox, True, True, 0)
         Image_VBox.pack_start(Image_Toolbar_VBox, False, False, 0)
 
-        Image_VBox.set_size_request(920,1000)
+        Image_VBox.set_size_request(740, 800)
 
         ###
         self.XRF_Figure = Figure()
@@ -2131,7 +2133,7 @@ class MyMainWindow:
         XRF_VBox.pack_start(self.XRF_ScrolledWindow_EventBox, True, True, 0)
         XRF_VBox.pack_start(XRF_Toolbar_VBox, False, False, 0)
 
-        XRF_VBox.set_size_request(920,1000)
+        XRF_VBox.set_size_request(740, 800)
         ###
 
         self.Image_Notebook = Gtk.Notebook()
@@ -2324,7 +2326,7 @@ class MyMainWindow:
         self.Main_Window.connect("destroy", self.MainWindow_Destroy)
         self.Main_Window.set_title("Diffraction User Data Explorer")
         self.Main_Window.add(Main_VBox)
-        self.Main_Window.set_resizable(False)
+        self.Main_Window.set_resizable(True)
         self.Main_Window.show_all()
 
         self.Image_ScrolledWindow_EventBox.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.TCROSS))
