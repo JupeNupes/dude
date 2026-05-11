@@ -49,7 +49,7 @@ def mda_loader(fname):
         data = readMDA(fname, verbose=0)
     except Exception as e:
         print(fname, e)
-        return [str(int(scannum))]+["-"]*9+[fname,False]
+        return [str(int(scannum))]+["-"]*9+["","","",fname,False]
     ctime = -1
     ndim = len(data)-1 if data[0]["dimensions"][-1] != 2048 else len(data)-2
     try:
@@ -63,7 +63,7 @@ def mda_loader(fname):
                     "{0:.3f}".format(data[1].p[0].data[-1]),\
                     str(data[0]["dimensions"][0]),\
                     "", "", ""," ",\
-                    "{0:.1f}".format(ctime), fname, False]
+                    "{0:.1f}".format(ctime), "", "", "", fname, False]
         elif ndim == 2: # 2D Scan
             for d in data[2].d:
                 if d.name == "26idcXMAP:PresetReal":
@@ -77,8 +77,8 @@ def mda_loader(fname):
              "{0:.3f}".format(data[2].p[0].data[0][0]),\
              "{0:.3f}".format(data[2].p[0].data[-1][-1]),\
              str(data[0]["dimensions"][1]),\
-            "{0:.1f}".format(ctime), fname, False]
+            "{0:.1f}".format(ctime), "", "", "", fname, False]
     except Exception as e:
         print (e)
-        return [str(int(scannum))]+["-"]*9+[fname,False]
+        return [str(int(scannum))]+["-"]*9+["","","",fname,False]
 

@@ -306,9 +306,9 @@ class MainWindow():
         cm1 = next(cm0)
 
         for row in dude.MDA_File_ListStore: 
-            if row[11] == True: # row[11] is the multiselect toggle button
+            if row[14] == True: # row[14] is the multiselect toggle button
                 scannum += [int(row[0])]
-                mdafiles += [row[10]]
+                mdafiles += [row[13]]
 
         if len(mdafiles) == 0:
             shifts = np.loadtxt(shift_file, dtype=int)
@@ -317,7 +317,7 @@ class MainWindow():
                 mdafiles += [os.path.join(dude.MDA_folder, "26idbSOFT_{0:04d}.mda".format(scan))]
 
         for i in range(len(mdafiles)):
-            mda = readMDA(mdafiles[i], verbose=0) # row[10] contains the path of the mda file
+            mda = readMDA(mdafiles[i], verbose=0) # row[12] contains the path of the mda file
             ystep += [np.int(np.round((mda[1].p[0].data[1]-mda[1].p[0].data[0])*1000,0))]
             xstep += [np.int(np.round((mda[2].p[0].data[0][1]-mda[2].p[0].data[0][0])*1000,0))]
             # below it is assumed that you only use this on 2D data

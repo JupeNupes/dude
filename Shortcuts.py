@@ -9,6 +9,9 @@ from math import *
 from readMDA import *
 import time
 import h5py
+import json
+import os
+import shutil
 
 try:
     import epics
@@ -52,18 +55,22 @@ class MainWindow:
         lims = (9e9,-9e9,9e9,-9e9)
         IMs = []
         for row in dude.MDA_File_ListStore:
-            if row[11] == True: # row[11] is the multiselect toggle button
+            if row[14] == True: # row[14] is the multiselect toggle button
                 if dude.Scan_ToolBox_U_ToggleButton.get_active(): # if custom ROI is selected
                     pass # do nothing = not implemented
                 else:
-                    mda = readMDA(row[10], verbose=0) # row[10] contains the path of the mda file
+                    mda = readMDA(row[13], verbose=0) # row[13] contains the path of the mda file
                     if dude.eiger_enabled:
                         h5_filename = [f.name for f in os.scandir(dude.h5_folder) if "scan_{0}".format(row[0]) in f.name][0]
-                        #print(h5_filename)
                         with h5py.File(os.path.join(dude.h5_folder, h5_filename), 'r') as h5:
-                            xdata2_0 = h5["/entry/instrument/26-ID-C/ATTO SAM Z"][()] 
-                            theta = h5["/entry/instrument/26-ID-C/SAMPLE THETA"][()]
-                        #print(np.sin(np.radians(theta)))
+                            try:
+                                xdata2_0 = h5["/entry/instrument/26-ID-C/ATTO SAM Z"][()] 
+                            except KeyError:
+                                xdata2_0 = 0.0
+                            try:
+                                theta = h5["/entry/instrument/26-ID-C/SAMPLE THETA"][()]
+                            except KeyError:
+                                theta = 0.0
                     else:
                         for d in mda[2].d:
                             if d.name == "atto2:m3.RBV":
@@ -78,22 +85,63 @@ class MainWindow:
                     #ydata = np.copy(xdata2)
                     xdata2 *= datatmp
                     xdata1 *= np.array(mda[1].p[0].data)[:dimy,np.newaxis]
+
+                    # --- Determine tile position ---
+                    # Recognised fine-motor coordinate systems
+                    known_m1 = False
+                    known_m2 = False
+
                     if mda[1].p[0].name == "26idcnpi:Y_HYBRID_SP.VAL":
                         xdata1_0 = xdata1
+                        known_m1 = True
                     elif mda[1].p[0].name == "26idcnpi:X_HYBRID_SP.VAL":
-                        #xdata2_0 = xdata1 - xdata2_0 * np.cos(np.radians(theta))
                         xdata2_0 =  -xdata1 /  np.sin(np.radians(theta)) + xdata2_0
+                        known_m1 = True
+
                     if mda[2].p[0].name == "26idcnpi:Y_HYBRID_SP.VAL":
                         xdata1_0 = xdata2
+                        known_m2 = True
                     elif mda[2].p[0].name == "26idcnpi:X_HYBRID_SP.VAL":
                         xdata2_0 =  -xdata2 /  np.sin(np.radians(theta)) + xdata2_0
-                    if mda[2].p[0].name == "26idbATTO:m3.VAL":
+                        known_m2 = True
+                    elif mda[2].p[0].name == "26idbATTO:m3.VAL":
                         for d in mda[2].d:
                             if d.name == "26idcnpi:m35.RBV":
                                 xdata1_0 = np.array(d.data)
                             if d.name == "26idcnpi:m34.RBV":
                                 xdata2_0 = np.array(d.data)
                         xdata2_0 = -xdata2_0 / np.sin(np.radians(theta)) + xdata2
+                        known_m2 = True
+
+                    # Fallback: for any axis not handled above, use coarse
+                    # motors (SAMZ/SAMY) as global offset + fine motor as local.
+                    # Framework: global_pos = coarse_offset + fine_motor_local
+                    if not (known_m1 and known_m2):
+                        samz, samy, samth = 0.0, 0.0, 0.0
+                        if dude.eiger_enabled:
+                            h5_path = os.path.join(dude.h5_folder, h5_filename)
+                            with h5py.File(h5_path, 'r') as h5fb:
+                                try:
+                                    samz = float(h5fb["/entry/instrument/26-ID-C/SAMZ"][()])
+                                except Exception:
+                                    pass
+                                try:
+                                    samy = float(h5fb["/entry/instrument/26-ID-C/SAMY"][()])
+                                except Exception:
+                                    pass
+                                try:
+                                    samth = float(h5fb["/entry/instrument/26-ID-C/SAMTH"][()])
+                                except Exception:
+                                    samth = theta  # fall back to theta from earlier
+                        # Only fill axes that weren't already resolved
+                        # 1/sin(theta) corrects the projective distortion from
+                        # the shallow Bragg angle viewing geometry.
+                        if not known_m2:
+                            sin_th = np.sin(np.radians(samth)) if samth != 0 else 1.0
+                            xdata2_0 = -xdata2 / sin_th + samz
+                        if not known_m1:
+                            xdata1_0 = xdata1 - samy
+
                     ydata = np.array(mda[2].d[dude.Scan_ToolBox_Y_ComboBox.get_active()].data)
                     if dude.dirty_fix and "eiger" in mda[2].d[dude.Scan_ToolBox_Y_ComboBox.get_active()].name and mda[1].time != "whatever":
                         #print("dirty fixing first point bug")
@@ -357,6 +405,7 @@ class MainWindow:
                 dude.Scan_Plot1D(dude.Plot1D_xdata, np.copy(data2)[:dude.Plot1D_xdata.shape[0],0], hold=True)
             dude.Plot1D_Canvas.draw()
             dude.Plot_Notebook.set_current_page(0)
+        dude._last_map_type = "XCoM"
 
 
     def CoMY(self, widget, dude):
@@ -428,6 +477,7 @@ class MainWindow:
                 dude.Scan_Plot1D(dude.Plot1D_xdata, np.copy(data2)[:dude.Plot1D_xdata.shape[0],0], hold=True)
             dude.Plot1D_Canvas.draw()
             dude.Plot_Notebook.set_current_page(0)
+        dude._last_map_type = "YCoM"
 
 
     def SumX(self, widget, dude):
@@ -720,6 +770,186 @@ class MainWindow:
         dude.Plot_Notebook.set_current_page(0)
 
 
+    def Export2D(self, widget, dude):
+        """Export the current 2D plot data as .npy with a JSON metadata sidecar
+        and copies of all Analysis CSVs (gamma, twotheta, etc.).
+        Files are saved into an auto-created scan_<number> subfolder."""
+
+        scannum = dude.MDA_File_ListStore[dude.mda_selection_path[0]][0]
+
+        # --- Folder chooser dialog: pick the parent directory ---
+        FileDialog = Gtk.FileChooserDialog(
+            title="Export 2D Map — choose parent folder",
+            action=Gtk.FileChooserAction.SELECT_FOLDER)
+        FileDialog.set_transient_for(dude.Main_Window)
+        FileDialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+        response = FileDialog.run()
+        if response != Gtk.ResponseType.OK:
+            FileDialog.destroy()
+            return
+        parent_dir = FileDialog.get_filename()
+        FileDialog.destroy()
+
+        # Auto-create a scan subfolder inside the chosen directory
+        scan_folder = os.path.join(parent_dir, "scan_{0}".format(scannum))
+        os.makedirs(scan_folder, exist_ok=True)
+
+        # --- Prompt for an optional filename prefix ---
+        PrefixDialog = Gtk.Dialog(
+            title="File prefix (optional)",
+            transient_for=dude.Main_Window,
+            flags=0)
+        PrefixDialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK, Gtk.ResponseType.OK)
+        content = PrefixDialog.get_content_area()
+        label = Gtk.Label(label="Enter a prefix for the .npy / .json files\n(leave blank for none):")
+        content.add(label)
+        prefix_entry = Gtk.Entry()
+        prefix_entry.set_activates_default(True)
+        content.add(prefix_entry)
+        PrefixDialog.set_default_response(Gtk.ResponseType.OK)
+        PrefixDialog.show_all()
+        prefix_response = PrefixDialog.run()
+        if prefix_response != Gtk.ResponseType.OK:
+            PrefixDialog.destroy()
+            return
+        user_prefix = prefix_entry.get_text().strip()
+        PrefixDialog.destroy()
+
+        # Build the prefix string (add trailing underscore if non-empty)
+        prefix = "{0}_".format(user_prefix) if user_prefix else ""
+
+        # --- 1. Determine map type and detector channel ---
+        ndim = len(dude.data) - 1 if dude.data[0]["dimensions"][-1] != 2048 else len(dude.data) - 2
+        last_map = getattr(dude, '_last_map_type', None)
+
+        if last_map in ("XCoM", "YCoM"):
+            map_type = last_map
+            detector_channel = None
+        elif dude.Scan_ToolBox_U_ToggleButton.get_active():
+            map_type = "Intensity (User ROI)"
+            detector_channel = None
+        else:
+            map_type = "Intensity (MDA Channel)"
+            det_idx = dude.Scan_ToolBox_Y_ComboBox.get_active()
+            try:
+                detector_channel = dude.data[ndim].d[det_idx].name
+            except (IndexError, AttributeError):
+                detector_channel = "unknown"
+
+        # Filesystem-safe tag: "XCoM" -> "xcom", "Intensity (User ROI)" -> "intensity_user_roi"
+        file_tag = map_type.lower().replace(" ", "_").replace("(", "").replace(")", "")
+
+        # --- 2. Save .npy array ---
+        npy_name = "{0}{1}.npy".format(prefix, file_tag)
+        npy_path = os.path.join(scan_folder, npy_name)
+        np.save(npy_path, np.array(dude.Plot2D_ydata))
+        print("Saved 2D data to", npy_path)
+
+        # --- 3. Gather motor info ---
+        row = dude.MDA_File_ListStore[dude.mda_selection_path[0]]
+        motor1 = {
+            "name": row[1],
+            "min": row[2],
+            "max": row[3],
+            "npts": row[4]
+        }
+        motor2 = None
+        if ndim == 2:
+            motor2 = {
+                "name": row[5],
+                "min": row[6],
+                "max": row[7],
+                "npts": row[8]
+            }
+
+        # --- 4. ROI coordinates ---
+        roi = {
+            "xmin": int(dude.Scan_ToolBox_CustomROI_XMin_Spin_Adjustment.get_value()),
+            "xmax": int(dude.Scan_ToolBox_CustomROI_XMax_Spin_Adjustment.get_value()),
+            "ymin": int(dude.Scan_ToolBox_CustomROI_YMin_Spin_Adjustment.get_value()),
+            "ymax": int(dude.Scan_ToolBox_CustomROI_YMax_Spin_Adjustment.get_value())
+        }
+
+        # --- 5. H5 / MDA file info ---
+        h5_file = None
+        try:
+            h5_file = os.path.basename(dude.h5.filename)
+        except (AttributeError, RuntimeError):
+            pass
+
+        mda_path = row[13]
+
+        # --- 6. H5-sourced metadata (when available) ---
+        h5_metadata = {}
+        if dude.eiger_enabled and h5_file is not None:
+            for key, label in [
+                ("/entry/instrument/26-ID-C/SAMPLE THETA", "sample_theta"),
+                ("/entry/instrument/26-ID-C/Det Two Theta", "det_two_theta"),
+                ("/entry/instrument/26-ID-B/DCM Energy", "dcm_energy"),
+                ("/entry/instrument/26-ID-C/ATTO SAM Z", "atto_sam_z"),
+                ("/entry/instrument/26-ID-C/ATTO SAM X", "atto_sam_x"),
+            ]:
+                try:
+                    val = dude.h5[key][()]
+                    h5_metadata[label] = float(val) if np.ndim(val) == 0 else float(val.flat[0])
+                except Exception:
+                    pass
+
+        # --- 7. Build JSON metadata ---
+        metadata = {
+            "scan_number": scannum,
+            "mda_file": mda_path,
+            "h5_file": h5_file,
+            "map_type": map_type,
+            "detector_channel": detector_channel,
+            "roi": roi,
+            "scan_dimensions": list(dude.data[0]["dimensions"]),
+            "ndim": ndim,
+            "motor1": motor1,
+            "motor2": motor2,
+            "count_time": row[9],
+            "detector_type": {
+                "dimX": dude.dimX,
+                "dimY": dude.dimY,
+                "eiger_enabled": dude.eiger_enabled,
+                "pilatus_enabled": dude.pilatus_enabled
+            },
+            "colormap": dude.cm,
+            "sparse_enabled": dude.sparse_enabled,
+            "dirty_fix": dude.dirty_fix,
+            "pump_probe": dude.pump_probe,
+            "h5_metadata": h5_metadata,
+            "npy_file": npy_name
+        }
+
+        json_name = "{0}{1}_meta.json".format(prefix, file_tag)
+        json_path = os.path.join(scan_folder, json_name)
+        with open(json_path, 'w') as f:
+            json.dump(metadata, f, indent=2)
+        print("Saved metadata to", json_path)
+
+        # --- 8. Copy Analysis CSVs (skip if already present) ---
+        analysis_folder = os.path.join(
+            os.path.abspath(os.path.join(dude.MDA_folder, os.pardir, 'Analysis')))
+        if os.path.isdir(analysis_folder):
+            csv_files = [f for f in os.listdir(analysis_folder) if f.endswith('.csv')]
+            for csv_file in csv_files:
+                dst = os.path.join(scan_folder, csv_file)
+                if not os.path.exists(dst):
+                    shutil.copy2(os.path.join(analysis_folder, csv_file), dst)
+                    print("Copied", csv_file)
+                else:
+                    print("Skipped", csv_file, "(already exists)")
+        else:
+            print("Analysis folder not found at", analysis_folder, "— skipping CSV copy")
+
+        print("Export complete:", scan_folder)
+
+
     def save2csv(self, widget, dude, flag):
 
         analysis_folder = os.path.join(os.path.abspath(os.path.join(dude.MDA_folder, os.pardir, 'Analysis')))    
@@ -737,6 +967,11 @@ class MainWindow:
     def __init__(self, dude):
 
         button_list = []
+
+        Export2D_Button = Gtk.Button("Export 2D w/Info")
+        Export2D_Button.set_tooltip_text("Export the current 2D plot as .npy, with full metadata JSON, and Analysis CSVs.")
+        Export2D_Button.connect("clicked", self.Export2D, dude)
+        button_list += [Export2D_Button]
 
         SumImages_Button = Gtk.Button("Sum Images")
         SumImages_Button.set_tooltip_text("Average over all the images in the scan, and show it in log scale")
@@ -917,11 +1152,11 @@ class MainWindow:
         ydata = 0
         cnt = 0
         for row in dude.MDA_File_ListStore:
-            if row[11] == True: # row[11] is the multiselect toggle button
+            if row[14] == True: # row[14] is the multiselect toggle button
                 if dude.Scan_ToolBox_U_ToggleButton.get_active(): # if custom ROI is selected
                     pass # do nothing = not implemented
                 else:
-                    mda = readMDA(row[10], verbose=0) # row[10] contains the path of the mda file
+                    mda = readMDA(row[13], verbose=0) # row[13] contains the path of the mda file
                     xdata = np.array(mda[1].p[0].data)
                     ydata += np.array(mda[1].d[dude.Scan_ToolBox_Y_ComboBox.get_active()].data)
                     cnt += 1
@@ -931,18 +1166,19 @@ class MainWindow:
 
 
 
-   def Ahn1(self, widget, dude):
+    def Ahn1(self, widget, dude):
 
         i = 0
+        mda = None
         for row in dude.MDA_File_ListStore:
-            if row[11] == True: # row[11] is the multiselect toggle button
+            if row[14] == True: # row[14] is the multiselect toggle button
                 if dude.Scan_ToolBox_U_ToggleButton.get_active(): # if custom ROI is selected
                     pass # do nothing = not implemented
                 else:
                     if i==0:
-                        mda = np.array((readMDA(row[10], verbose=0))[1].d[dude.Scan_ToolBox_Y_ComboBox.get_active()].data)
+                        mda = np.array((readMDA(row[13], verbose=0))[1].d[dude.Scan_ToolBox_Y_ComboBox.get_active()].data)
                     else:
-                        mda += np.array((readMDA(row[10], verbose=0))[1].d[dude.Scan_ToolBox_Y_ComboBox.get_active()].data)
+                        mda += np.array((readMDA(row[13], verbose=0))[1].d[dude.Scan_ToolBox_Y_ComboBox.get_active()].data)
                     i += 1 
         mda /= i
         dude.Plot1D_Axe.plot(dude.Plot1D_xdata, mda)
@@ -1053,8 +1289,8 @@ class MainWindow:
         lims = (9e9,-9e9,9e9,-9e9)
         IMs = []
         for row in dude.MDA_File_ListStore:
-            if row[11] == True: # row[11] is the multiselect toggle button
-                mda = readMDA(row[10], verbose=0)
+            if row[14] == True: # row[14] is the multiselect toggle button
+                mda = readMDA(row[13], verbose=0)
                 datatmp = np.array(mda[2].p[0].data)
                 dimy, dimx = datatmp.shape[0], datatmp.shape[1]
                 xdata2 = np.ones((dimy,dimx))

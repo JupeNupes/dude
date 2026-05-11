@@ -1341,7 +1341,7 @@ class MyMainWindow:
 
         
         irow, icolumn = self.MDA_File_TreeView.get_cursor()
-        if icolumn == self.MDA_File_TreeView.get_column(10): 
+        if icolumn == self.MDA_File_TreeView.get_column(13): 
             self.MDA_File_ListStore[irow][-1] = not self.MDA_File_ListStore[irow][-1]
             return False
         else:
@@ -1351,7 +1351,6 @@ class MyMainWindow:
     def Scan_Load(self, mdapath):
         # Core logic for loading a scan's metadata, 1D/2D data, and associated detector image files.
         # Handles complex cases like interrupted scans, missing images, and various detector formats.
-
 
         Scan_ToolBox_Y_ComboBox_Select = self.Scan_ToolBox_Y_ComboBox.get_active()
         Scan_ToolBox_M_ComboBox_Select = self.Scan_ToolBox_M_ComboBox.get_active()
@@ -1418,6 +1417,8 @@ class MyMainWindow:
                         self.ShowMetadata.h5 = self.h5
                         self.ShowMetadata.update_keystore()
                         print("updating metadata")
+                    # Extract coarse motor positions for display
+                    self._update_coarse_motors()
 
             else:
                 self.image_path = os.path.join(self.Image_folder, mdapath.split(".")[0].split("_")[-1].lstrip("0"))
@@ -1538,9 +1539,40 @@ class MyMainWindow:
         self.Scan_ToolBox_CustomROI_Sum_Button.set_sensitive(False)
         
 
+    def _update_coarse_motors(self):
+        """Read SAMX/SAMY from the open H5 file and update the display label + table row."""
+        sx_str, sy_str = '---', '---'
+        try:
+            sx = self.h5['/entry/instrument/26-ID-C/SAMX'][()]
+            sx_str = '{0:.1f}'.format(float(sx.flat[0]) if hasattr(sx, 'flat') else float(sx))
+        except Exception:
+            pass
+        try:
+            sy = self.h5['/entry/instrument/26-ID-C/SAMY'][()]
+            sy_str = '{0:.1f}'.format(float(sy.flat[0]) if hasattr(sy, 'flat') else float(sy))
+        except Exception:
+            pass
+        sz_str = '---'
+        try:
+            sz = self.h5['/entry/instrument/26-ID-C/SAMZ'][()]
+            sz_str = '{0:.1f}'.format(float(sz.flat[0]) if hasattr(sz, 'flat') else float(sz))
+        except Exception:
+            pass
+        # Update the label below the 2D plot
+        self.Plot2D_CoarseMotor_Label.set_markup(
+            '<span font_desc="monospace 9" foreground="#555555">'
+            'SAMX: {0}   SAMY: {1}   SAMZ: {2}</span>'.format(sx_str, sy_str, sz_str))
+        # Also update the scan table columns for this row
+        try:
+            row = self.mda_selection_path[0]
+            self.MDA_File_ListStore[row][10] = sx_str
+            self.MDA_File_ListStore[row][11] = sy_str
+            self.MDA_File_ListStore[row][12] = sz_str
+        except Exception:
+            pass
+
     def Folder_Refresh(self, widget):
         # Re-scans the MDA folder for new files added since the last update.
-
 
         self.MDA_cursor_current = self.MDA_File_TreeView.get_cursor()[0] #unstable
         self.MDA_File_TreeView.get_selection().handler_block(self.MDA_File_TreeView_Selection_Changed_Handler) #unstable
@@ -1556,7 +1588,6 @@ class MyMainWindow:
     def Folder_Open(self):
         # Clears the current file list and performs a full scan of the MDA directory.
 
-
         self.MDA_File_TreeView.get_selection().handler_block(self.MDA_File_TreeView_Selection_Changed_Handler)
         self.MDA_File_ListStore.clear()
         self.MDA_File_TreeView.get_selection().handler_unblock(self.MDA_File_TreeView_Selection_Changed_Handler)
@@ -1569,7 +1600,6 @@ class MyMainWindow:
     def Folder_Scan(self, MDAfile_list):
         # Parallelized loading of MDA metadata for a list of files to populate the tree view.
 
-
         if len(self.MDA_File_ListStore):
             self.MDA_File_ListStore.remove(self.MDA_File_ListStore[-1].iter)
         mda_list = list(map(lambda x:os.path.join(self.MDA_folder,x), MDAfile_list))
@@ -1581,9 +1611,9 @@ class MyMainWindow:
         if hasattr(self, "MDA_cursor_current"):
             self.MDA_File_TreeView.set_cursor(self.MDA_cursor_current)#unstable
 
+
     def Upload_To_Logbook(self, widget, flag):
         # Saves the current active plot as a JPEG and uploads it to Google Drive/Logbook.
-
 
         folder_id = '1HaYq1NBpA5CTgdP1Y__rOPwpbRoeL6Vo'
         filename = str(uuid.uuid4())+'.jpg'
@@ -1622,9 +1652,9 @@ class MyMainWindow:
         self.sheet.insert_row(["","",str(scannum),"",content], i_row, value_input_option='USER_ENTERED')
         set_row_height(self.sheet, str(i_row), 200)
                
+
     def Console_KeyPressed(self, widget, event):
         # Implements history navigation (Up/Down arrows) for the GUI python console.
-
 
         keyname = Gdk.keyval_name(event.keyval)
         if keyname == 'Up' and (event.state & Gdk.ModifierType.SHIFT_MASK):
@@ -1687,7 +1717,7 @@ class MyMainWindow:
         MDA_File_ScrolledWindow = Gtk.ScrolledWindow()
         MDA_File_ScrolledWindow.set_policy(Gtk.PolicyType.ALWAYS, Gtk.PolicyType.ALWAYS)
         MDA_File_ScrolledWindow.set_overlay_scrolling(False)
-        self.MDA_File_ListStore = Gtk.ListStore(str, str, str, str, str, str, str, str, str, str, str, bool)
+        self.MDA_File_ListStore = Gtk.ListStore(str, str, str, str, str, str, str, str, str, str, str, str, str, str, bool)
         self.MDA_File_TreeView_Filter = self.MDA_File_ListStore.filter_new()
         self.MDA_File_TreeView = Gtk.TreeView.new_with_model(self.MDA_File_TreeView_Filter)
         self.MDA_File_TreeView.get_selection().set_mode(Gtk.SelectionMode.SINGLE)
@@ -1696,7 +1726,7 @@ class MyMainWindow:
         self.MDA_File_TreeView.get_selection().set_select_function(self.Scan_TreeView_Select_Hijack)
 
         i = 0      
-        for name in ["N#","M1","MIN","MAX","NP","M2","MIN","MAX","NP","CT"]:
+        for name in ["N#","M1","MIN","MAX","NP","M2","MIN","MAX","NP","CT","SX","SY","SZ"]:
             MDA_File_CellRendererText = Gtk.CellRendererText()     
             MDA_File_CellRendererText.set_property("xalign", 1)
             MDA_File_TreeViewColumn = Gtk.TreeViewColumn(name, MDA_File_CellRendererText, text = i)
@@ -1704,7 +1734,7 @@ class MyMainWindow:
             self.MDA_File_TreeView.append_column(MDA_File_TreeViewColumn)
         MDA_File_CellRendererToggle = Gtk.CellRendererToggle()     
         MDA_File_CellRendererToggle.set_property("xalign", .5)
-        MDA_File_TreeViewColumn = Gtk.TreeViewColumn("", MDA_File_CellRendererToggle, active = 11)
+        MDA_File_TreeViewColumn = Gtk.TreeViewColumn("", MDA_File_CellRendererToggle, active = 14)
         self.MDA_File_TreeView.append_column(MDA_File_TreeViewColumn)
         self.MDA_File_TreeView.set_enable_search(False)
         MDA_File_ScrolledWindow.add(self.MDA_File_TreeView)
@@ -1957,11 +1987,20 @@ class MyMainWindow:
         Plot2DToolbar_HBox2.set_border_width(3)
         Plot2DToolbar_HBox2.pack_end(self.Plot2D_P0_Label, False, False, 0)
         Plot2DToolbar_HBox2.pack_start(self.Plot2D_P1_Label, False, False, 0)
+
+        # Coarse motor position label
+        self.Plot2D_CoarseMotor_Label = Gtk.Label()
+        self.Plot2D_CoarseMotor_Label.set_markup(
+            '<span font_desc="monospace 9" foreground="#888888">SAMX: ---  SAMY: ---  SAMZ: ---</span>')
+        Plot2DToolbar_HBox3 = Gtk.HBox(homogeneous=False, spacing=3)
+        Plot2DToolbar_HBox3.set_border_width(1)
+        Plot2DToolbar_HBox3.pack_start(self.Plot2D_CoarseMotor_Label, False, False, 4)
  
         Plot2D_VBox = Gtk.VBox(homogeneous = False, spacing = 3)
         Plot2D_VBox.set_border_width(3)
         Plot2D_VBox.pack_start(Plot2DToolbar_HBox1, False, False, 0)
         Plot2D_VBox.pack_start(Plot2DToolbar_HBox2, False, False, 0)
+        Plot2D_VBox.pack_start(Plot2DToolbar_HBox3, False, False, 0)
         Plot2D_VBox.pack_start(Plot2D_ScrolledWindow_EventBox, True, True, 0)
 
         self.PlotSpare_Figure = Figure()
@@ -1977,6 +2016,7 @@ class MyMainWindow:
         #------------------------Detector Image-------------------------------#
         # Setup the main detector image display canvas and its mouse interaction events
 
+        self.Image_Figure = Figure()
         self.Image_Axe = self.Image_Figure.add_axes([0, 0, 1, 1])
         self.Image_Axe.set_axis_off()
         #self.Image_Axe.xaxis.set_ticklabels([])
@@ -2074,6 +2114,7 @@ class MyMainWindow:
         #------------------------XRF Plot-------------------------------#
         # Setup specialized dual-axes display for X-ray Fluorescence (XRF) spectra
 
+        self.XRF_Figure = Figure()
         self.XRF1_Axe = self.XRF_Figure.add_axes([0.08, 0.55, 0.9, 0.43])
         self.XRF2_Axe = self.XRF_Figure.add_axes([0.08, 0.05, 0.9, 0.43])
         self.XRF_Canvas = FigureCanvas(self.XRF_Figure)

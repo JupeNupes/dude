@@ -2,5 +2,6 @@
     "python.defaultInterpreterPath": "",
     "terminal.integrated.env.osx": {
         "DYLD_LIBRARY_PATH": "/opt/homebrew/lib"
-    }
+    },
+    "python.analysis.autoImportCompletions": true
 }
