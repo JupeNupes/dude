@@ -54,6 +54,7 @@ class MainWindow:
         ymax = 1
         lims = (9e9,-9e9,9e9,-9e9)
         IMs = []
+        tile_info = []  # collect (scan_number, extent) for labelling
         for row in dude.MDA_File_ListStore:
             if row[14] == True: # row[14] is the multiselect toggle button
                 if dude.Scan_ToolBox_U_ToggleButton.get_active(): # if custom ROI is selected
@@ -149,11 +150,13 @@ class MainWindow:
                         ydata_flat[:-1] = ydata_flat[1:]
                         ydata = ydata_flat.reshape(ydata.shape)
                     #dude.Plot2D_Axe.pcolormesh(xdata2, xdata1, ydata, cmap=dude.cm, alpha=0.5)
-                    IMs += [dude.Plot2D_Axe.imshow(ydata,cmap=dude.cm, alpha=0.5, extent=(xdata2_0[0,0],xdata2_0[-1,-1],xdata1_0[0,0],xdata1_0[-1,-1]), origin="lower")]
-                    lims = (min(lims[0],min(xdata2_0[0,0],xdata2_0[-1,-1])),\
-                            max(lims[1],max(xdata2_0[0,0],xdata2_0[-1,-1])),\
-                            min(lims[2],min(xdata1_0[0,0],xdata1_0[-1,-1])),\
-                            max(lims[3],max(xdata1_0[0,0],xdata1_0[-1,-1])))
+                    ext = (xdata2_0[0,0],xdata2_0[-1,-1],xdata1_0[0,0],xdata1_0[-1,-1])
+                    IMs += [dude.Plot2D_Axe.imshow(ydata,cmap=dude.cm, alpha=0.5, extent=ext, origin="lower")]
+                    tile_info.append((row[0], ext))  # (scan_number, extent)
+                    lims = (min(lims[0],min(ext[0],ext[1])),\
+                            max(lims[1],max(ext[0],ext[1])),\
+                            min(lims[2],min(ext[2],ext[3])),\
+                            max(lims[3],max(ext[2],ext[3])))
                     ymin = max(1,min(ymin, ydata.min()))
                     ymax = max(ymax, ydata.max())
                     
@@ -162,6 +165,26 @@ class MainWindow:
                 IM.set_norm(colors.LogNorm(ymin, ymax))
             else:
                 IM.set_norm(colors.Normalize(ymin, ymax))
+
+        # --- Add scan number labels at the inside corner of each tile ---
+        cx = (lims[0] + lims[1]) / 2.0  # mosaic center x
+        cy = (lims[2] + lims[3]) / 2.0  # mosaic center y
+        for scan_num, ext in tile_info:
+            # ext = (x_left, x_right, y_bottom, y_top)
+            # Pick the corner closest to the mosaic center
+            lx = min(ext[0], ext[1])
+            rx = max(ext[0], ext[1])
+            by = min(ext[2], ext[3])
+            ty = max(ext[2], ext[3])
+            tx = lx if abs(lx - cx) < abs(rx - cx) else rx
+            ty_label = by if abs(by - cy) < abs(ty - cy) else ty
+            # Align text so it sits inside the tile (away from the chosen corner edge)
+            ha = 'left' if tx == lx else 'right'
+            va = 'bottom' if ty_label == by else 'top'
+            dude.Plot2D_Axe.text(tx, ty_label, str(scan_num), fontsize=8,
+                                ha=ha, va=va, color='black',
+                                bbox=dict(facecolor='white', alpha=0.6, edgecolor='none', pad=1))
+
         dude.Plot2D_Axe.set_xlim(lims[0],lims[1])
         dude.Plot2D_Axe.set_ylim(lims[2],lims[3])
         dude.Plot2D_Axe.set_aspect(1)
@@ -347,6 +370,7 @@ class MainWindow:
         ymin = int(dude.Scan_ToolBox_CustomROI_YMin_Spin_Adjustment.get_value())
         xmax = int(dude.Scan_ToolBox_CustomROI_XMax_Spin_Adjustment.get_value())
         xmin = int(dude.Scan_ToolBox_CustomROI_XMin_Spin_Adjustment.get_value())
+        
         if not dude.sparse_enabled:
             data = (((dude.image[:,ymin:ymax+1,xmin:xmax+1].sum(1)*np.arange(xmin,xmax+1)).sum(1)) /\
                     (dude.image[:,ymin:ymax+1,xmin:xmax+1].sum(1).sum(1)))
@@ -724,21 +748,111 @@ class MainWindow:
 
 
     def Stretch(self, widget, dude):
+        """Apply 1/sin(theta) projective stretch to the current 2D plot.
+        Re-plots the data with corrected horizontal extent rather than
+        merely adjusting the matplotlib aspect ratio."""
 
-        if dude.eiger_enabled:
-            theta = dude.h5["/entry/instrument/26-ID-C/SAMPLE THETA"][()]
-        else:
-            for d in dude.data[2].d:
-                if d.name == "atto2:PIC867:1:m1.RBV":
-                    theta = np.array(d.data).mean()
-        dx = np.abs(float(dude.MDA_File_ListStore[dude.mda_selection_path[0]][6])-\
-                    float(dude.MDA_File_ListStore[dude.mda_selection_path[0]][7]))/\
-            (float(dude.MDA_File_ListStore[dude.mda_selection_path[0]][8])-1)
-        dy = np.abs(float(dude.MDA_File_ListStore[dude.mda_selection_path[0]][2])-\
-                    float(dude.MDA_File_ListStore[dude.mda_selection_path[0]][3]))/\
-            (float(dude.MDA_File_ListStore[dude.mda_selection_path[0]][4])-1)
-        dude.Plot2D_Axe.set_aspect(sin(radians(theta))/dx*dy)
-        dude.Plot2D_Canvas.draw()
+        try:
+            # --- Read theta (try multiple H5 keys, matching OverviewMap logic) ---
+            theta = 0.0
+            if dude.eiger_enabled:
+                # Try "SAMPLE THETA" first (some experiments), then "SAMTH" (fallback)
+                for key in ["/entry/instrument/26-ID-C/SAMPLE THETA",
+                            "/entry/instrument/26-ID-C/SAMTH"]:
+                    try:
+                        theta = float(dude.h5[key][()])
+                        print("Stretch: read theta = {0:.2f}° from {1}".format(theta, key))
+                        break
+                    except KeyError:
+                        continue
+            else:
+                for d in dude.data[2].d:
+                    if d.name == "atto2:PIC867:1:m1.RBV":
+                        theta = float(np.array(d.data).mean())
+                        print("Stretch: read theta = {0:.2f}° from atto2 readback".format(theta))
+                        break
+
+            if theta == 0.0:
+                print("Stretch: theta is 0 — cannot apply correction")
+                return
+
+            sin_th = np.sin(np.radians(theta))
+            if abs(sin_th) < 1e-6:
+                print("Stretch: sin(theta) is ~0 — cannot apply correction")
+                return
+
+            # --- Check dimensionality ---
+            ndim = len(dude.data) - 1 if dude.data[0]["dimensions"][-1] != 2048 else len(dude.data) - 2
+            if ndim != 2:
+                print("Stretch: only applicable to 2D scans")
+                return
+
+            m1_name = dude.data[1].p[0].name  # outer (slow) motor
+            m2_name = dude.data[2].p[0].name  # inner (fast) motor
+            print("Stretch: outer motor = {0}, inner motor = {1}".format(m1_name, m2_name))
+
+            # Determine which axis needs the 1/sin(theta) correction.
+            # The Y_HYBRID motor scans perpendicular to the beam (no correction needed).
+            # Everything else (X_HYBRID, MARS, ATTO, sample stage) scans along
+            # the beam-projected direction and needs the correction.
+            # Motor 2 (inner/fast) maps to the X axis of the 2D plot.
+            # Motor 1 (outer/slow) maps to the Y axis of the 2D plot.
+            m1_is_y = ("Y_HYBRID" in m1_name)
+            m2_is_y = ("Y_HYBRID" in m2_name)
+
+            # Stretch whichever axis is NOT the Y (vertical) motor
+            stretch_inner = not m2_is_y  # inner motor = X axis of plot
+            stretch_outer = not m1_is_y and m2_is_y  # outer motor = Y axis of plot
+
+            # --- Get current axis data ---
+            xdata1 = dude.Plot2D_xdata1  # outer motor coords (Y axis of plot)
+            xdata2 = dude.Plot2D_xdata2  # inner motor coords (X axis of plot)
+            ydata = dude.Plot2D_ydata    # the 2D map data
+
+            # Compute corrected extents
+            x_left   = float(xdata2.min())
+            x_right  = float(xdata2.max())
+            y_bottom = float(xdata1.min())
+            y_top    = float(xdata1.max())
+
+            if stretch_inner:
+                # Inner motor (X axis) gets stretched by 1/sin(theta)
+                x_left  = x_left / sin_th
+                x_right = x_right / sin_th
+                print("Stretch: applying 1/sin({0:.1f}°) = {1:.3f}x to X axis ({2})".format(
+                    theta, 1.0/sin_th, m2_name))
+            elif stretch_outer:
+                # Outer motor (Y axis) gets stretched by 1/sin(theta)
+                y_bottom = y_bottom / sin_th
+                y_top    = y_top / sin_th
+                print("Stretch: applying 1/sin({0:.1f}°) = {1:.3f}x to Y axis ({2})".format(
+                    theta, 1.0/sin_th, m1_name))
+            else:
+                # Both axes are Y_HYBRID — no stretch needed
+                print("Stretch: both axes are Y_HYBRID — no correction needed")
+                return
+
+            # --- Re-plot with corrected extent ---
+            dude.Plot2D_Axe.cla()
+            dude.Plot2D_Axe.set_axis_off()
+            dude.Plot2D_Image = dude.Plot2D_Axe.imshow(
+                ydata, aspect='equal', interpolation='nearest', cmap=dude.cm,
+                origin='lower', extent=(x_left, x_right, y_bottom, y_top))
+            if dude.Plot2D_Log_ToggleButton.get_active():
+                dude.Plot2D_Image.set_norm(colors.LogNorm(
+                    vmin=max(0.1, dude.Plot2D_Vmin_HScale_Adjustment.get_value()),
+                    vmax=dude.Plot2D_Vmax_HScale_Adjustment.get_value()))
+            else:
+                dude.Plot2D_Image.set_norm(colors.Normalize(
+                    vmin=dude.Plot2D_Vmin_HScale_Adjustment.get_value(),
+                    vmax=dude.Plot2D_Vmax_HScale_Adjustment.get_value()))
+            dude.Plot2D_Canvas.draw()
+            print("Stretch: done")
+
+        except Exception as e:
+            print("Stretch: ERROR — {0}".format(e))
+            import traceback
+            traceback.print_exc()
 
 
     def Hist(self, widget, dude):
