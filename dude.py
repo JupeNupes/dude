@@ -895,6 +895,26 @@ class MyMainWindow:
                 filename = None
             FileDialog.destroy()
             return filename
+        elif flag == 4:
+            FileDialog = Gtk.FileChooserDialog(title = "Choose an HDF5 file", action = Gtk.FileChooserAction.OPEN)
+            FileDialog.set_transient_for(self.Main_Window)
+            FileDialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+            h5_filter = Gtk.FileFilter()
+            h5_filter.set_name("HDF5 files")
+            h5_filter.add_pattern("*.h5")
+            h5_filter.add_pattern("*.hdf5")
+            FileDialog.add_filter(h5_filter)
+            all_filter = Gtk.FileFilter()
+            all_filter.set_name("All files")
+            all_filter.add_pattern("*")
+            FileDialog.add_filter(all_filter)
+            response = FileDialog.run()
+            if response == Gtk.ResponseType.OK:
+                filename = FileDialog.get_filename()
+            else:
+                filename = None
+            FileDialog.destroy()
+            return filename
 
 
     def Detector_Changed(self, widget):
@@ -1414,9 +1434,7 @@ class MyMainWindow:
                     self.image_index_min = 0
                     self.nbin = 1
                     if hasattr(self, "ShowMetadata"):
-                        self.ShowMetadata.h5 = self.h5
-                        self.ShowMetadata.update_keystore()
-                        print("updating metadata")
+                        self.ShowMetadata.set_h5(self.h5)
                     # Extract coarse motor positions for display
                     self._update_coarse_motors()
 

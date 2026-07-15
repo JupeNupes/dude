@@ -20,6 +20,8 @@ except:
 else:
     beamline = True
 
+ALPHA_OVEVIEW_MAP = 0.90
+
 class MainWindow:
 
     def SumImages(self, widget, dude):
@@ -151,7 +153,7 @@ class MainWindow:
                         ydata = ydata_flat.reshape(ydata.shape)
                     #dude.Plot2D_Axe.pcolormesh(xdata2, xdata1, ydata, cmap=dude.cm, alpha=0.5)
                     ext = (xdata2_0[0,0],xdata2_0[-1,-1],xdata1_0[0,0],xdata1_0[-1,-1])
-                    IMs += [dude.Plot2D_Axe.imshow(ydata,cmap=dude.cm, alpha=0.5, extent=ext, origin="lower")]
+                    IMs += [dude.Plot2D_Axe.imshow(ydata,cmap=dude.cm, alpha=ALPHA_OVEVIEW_MAP, extent=ext, origin="lower")]
                     tile_info.append((row[0], ext))  # (scan_number, extent)
                     lims = (min(lims[0],min(ext[0],ext[1])),\
                             max(lims[1],max(ext[0],ext[1])),\
